@@ -2,7 +2,7 @@ name: 🚀 CD Pipeline (HARD-CODED, TEST ONLY)
 
 on:
   workflow_run:
-    workflows: ["CI Pipeline"]  # Must exactly match your CI workflow name
+    workflows: ["CI Pipeline"]  # Must exactly match your CI pipeline name
     types:
       - completed
 
@@ -10,7 +10,11 @@ jobs:
   deploy:
     name: 🚀 Deploy
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: >
+      ${{
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'dev'
+      }}
 
     steps:
       - name: 📥 Checkout code
@@ -19,7 +23,7 @@ jobs:
       - name: 🔧 Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: 🔑 Debug private key length
+      - name: 🔑 Debug DEV_PI_KEY length
         run: |
           echo "Checking DEV_PI_KEY size..."
           echo "${{ secrets.DEV_PI_KEY }}" | wc -c
@@ -32,13 +36,22 @@ jobs:
           else
             echo "✅ DEV_PI_KEY exists"
           fi
+
           mkdir -p ~/.ssh
           echo "${{ secrets.DEV_PI_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.DEV_PI_HOST }} >> ~/.ssh/known_hosts
+
+          echo "🧠 Running ssh-keyscan for host: ${{ secrets.DEV_PI_HOST }}"
+          ssh-keyscan -H ${{ secrets.DEV_PI_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || {
+            echo "❌ ssh-keyscan failed for host: ${{ secrets.DEV_PI_HOST }}"
+            exit 1
+          }
+
+          echo "✅ SSH key setup complete"
 
       - name: 🔍 Test SSH Connection
-        run: ssh -o StrictHostKeyChecking=no -p 2225 ${{ secrets.DEV_PI_USER }}@${{ secrets.DEV_PI_HOST }} "echo 'Connected successfully!'"
+        run: ssh -o StrictHostKeyChecking=no -p 2225 \
+          ${{ secrets.DEV_PI_USER }}@${{ secrets.DEV_PI_HOST }} "echo '✅ Connected successfully!'"
 
       - name: 🔐 Login to Docker Hub
         uses: docker/login-action@v3
@@ -68,20 +81,38 @@ jobs:
           cat > deploy.sh << 'EOF'
           #!/bin/bash
           set -euxo pipefail
+
+          echo "🔄 Stopping existing containers..."
           docker-compose down || true
+
+          echo "🧹 Cleaning up old images..."
           docker image prune -f
+
+          echo "📥 Pulling latest images..."
           docker pull ${{ secrets.DOCKERHUB_USERNAME }}/ukshati-frontend:${{ github.sha }}
           docker pull ${{ secrets.DOCKERHUB_USERNAME }}/ukshati-database:${{ github.sha }}
+
+          echo "🛠 Updating docker-compose.yml with new image tags..."
           sed -i 's|image: .*ukshati-frontend.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/ukshati-frontend:${{ github.sha }}|g' docker-compose.yml
           sed -i 's|image: .*ukshati-database.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/ukshati-database:${{ github.sha }}|g' docker-compose.yml
+
+          echo "🚀 Starting updated containers..."
           docker-compose up -d
+
+          echo "⏳ Waiting for services to stabilize..."
           sleep 30
+
+          echo "📦 Running docker-compose ps:"
           docker-compose ps
+
           echo "✅ Deployment completed!"
           EOF
 
-          scp -o StrictHostKeyChecking=no -P 2225 deploy.sh ${{ secrets.DEV_PI_USER }}@${{ secrets.DEV_PI_HOST }}:/home/${{ secrets.DEV_PI_USER }}/
-          ssh -o StrictHostKeyChecking=no -p 2225 ${{ secrets.DEV_PI_USER }}@${{ secrets.DEV_PI_HOST }} \
+          scp -o StrictHostKeyChecking=no -P 2225 deploy.sh \
+            ${{ secrets.DEV_PI_USER }}@${{ secrets.DEV_PI_HOST }}:/home/${{ secrets.DEV_PI_USER }}/
+
+          ssh -o StrictHostKeyChecking=no -p 2225 \
+            ${{ secrets.DEV_PI_USER }}@${{ secrets.DEV_PI_HOST }} \
             "cd /home/${{ secrets.DEV_PI_USER }}/ukshati && chmod +x deploy.sh && ./deploy.sh"
 
       - name: 📢 Notify Success
