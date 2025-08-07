@@ -64,16 +64,18 @@ jobs:
         run: |
           echo "🐳 Building frontend image..."
           docker buildx build --platform linux/amd64,linux/arm64 \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/ukshati-frontend:${{ github.sha }} \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/ukshati-frontend:latest \
+            -t ${{ secrets.DOCKER_USERNAME }}/ukshati-frontend:${{ github.sha }} \
+            -t ${{ secrets.DOCKER_USERNAME }}/ukshati-frontend:latest \
             --push .
+
 
           echo "🐳 Building MySQL image..."
           docker buildx build --platform linux/amd64,linux/arm64 \
             -f Dockerfile.mysql \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/ukshati-database:${{ github.sha }} \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/ukshati-database:latest \
+            -t ${{ secrets.DOCKER_USERNAME }}/ukshati-database:${{ github.sha }} \
+            -t ${{ secrets.DOCKER_USERNAME }}/ukshati-database:latest \
             --push .
+
 
       - name: 🚀 Deploy to Raspberry Pi
         run: |
@@ -90,12 +92,12 @@ jobs:
           docker image prune -f
 
           echo "📥 Pulling latest images..."
-          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/ukshati-frontend:${{ github.sha }}
-          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/ukshati-database:${{ github.sha }}
+          docker pull ${{ secrets.DOCKER_USERNAME }}/ukshati-frontend:${{ github.sha }}
+          docker pull ${{ secrets.DOCKER_USERNAME }}/ukshati-database:${{ github.sha }}
 
           echo "🛠 Updating docker-compose.yml with new image tags..."
-          sed -i 's|image: .*ukshati-frontend.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/ukshati-frontend:${{ github.sha }}|g' docker-compose.yml
-          sed -i 's|image: .*ukshati-database.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/ukshati-database:${{ github.sha }}|g' docker-compose.yml
+          sed -i 's|image: .*ukshati-frontend.*|image: ${{ secrets.DOCKER_USERNAME }}/ukshati-frontend:${{ github.sha }}|g' docker-compose.yml
+          sed -i 's|image: .*ukshati-database.*|image: ${{ secrets.DOCKER_USERNAME }}/ukshati-database:${{ github.sha }}|g' docker-compose.yml
 
           echo "🚀 Starting updated containers..."
           docker-compose up -d
