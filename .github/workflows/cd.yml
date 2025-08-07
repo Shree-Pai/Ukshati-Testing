@@ -2,7 +2,7 @@ name: 🚀 CD Pipeline (HARD-CODED, TEST ONLY)
 
 on:
   workflow_run:
-    workflows: ["CI Pipeline"]  # Must exactly match your CI pipeline name
+    workflows: ["CI Pipeline"]  # Must match the exact name of your CI workflow
     types:
       - completed
 
@@ -10,6 +10,7 @@ jobs:
   deploy:
     name: 🚀 Deploy
     runs-on: ubuntu-latest
+
     if: >
       ${{
         github.event.workflow_run.conclusion == 'success' &&
@@ -42,7 +43,7 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
 
           echo "🧠 Running ssh-keyscan for host: ${{ secrets.DEV_PI_HOST }}"
-          ssh-keyscan -H ${{ secrets.DEV_PI_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || {
+          ssh-keyscan -p 2225 -H ${{ secrets.DEV_PI_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || {
             echo "❌ ssh-keyscan failed for host: ${{ secrets.DEV_PI_HOST }}"
             exit 1
           }
