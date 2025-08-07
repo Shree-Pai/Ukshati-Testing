@@ -118,7 +118,7 @@ jobs:
           # Run deploy script remotely
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -p 2225 \
             ${{ secrets.DEV_PI_USER }}@${{ secrets.DEV_PI_HOST }} \
-            "cd /home/${{ secrets.DEV_PI_USER }}/ukshati && chmod +x deploy.sh && ./deploy.sh"
+            "cd /home/${{ secrets.DEV_PI_USER }}/ukshati.2.0 && chmod +x deploy.sh && ./deploy.sh"
 
       - name: 📢 Notify Success
         if: success()
